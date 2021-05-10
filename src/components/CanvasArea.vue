@@ -1,121 +1,46 @@
 <template>
-  <div class="draw-zone">
-    <canvas
-      id="draw-area"
-      ref="drawCanvas"
-      v-bind:style="{ cursor: cursorStyle }"
-      v-bind:width="canvasWidth"
-      v-bind:height="canvasHeight"
-      @mousedown="drawInit"
-      @mousemove="drawMoving"
-      @mouseup="drawEnd"
-      @mouseout="offCanvas"
-    />
+  <div>
+    <ToolBar v-if="ctx" :ctx="ctx" />
+    <div
+      ref="zwibCanvas"
+      v-bind:style="{
+        width: 'calc(100vw - 40px)',
+        height: 'calc(100vh - 40px)',
+        border: '1px solid black',
+      }"
+    ></div>
   </div>
 </template>
 
 <script>
-import { mapState } from 'vuex'
-
+import ToolBar from '@/components/ToolBar.vue'
 export default {
   name: 'CanvasArea',
+  components: {
+    ToolBar,
+  },
   data() {
     return {
-      canvas: null,
-      canvasWidth: 0,
-      canvasHeight: 0,
-      isDrawing: false,
-      x: 0,
-      y: 0,
-      currentWidth: null,
-      currentHeight: null,
+      ctx: null,
     }
   },
-  computed: {
-    ...mapState(['color', 'toolOption']),
-    cursorStyle() {
-      return this.isDrawing ? 'crosshair' : 'pointer'
-    },
+  async mounted() {
+    // 1. Load the Zwibbler script
+    await this.$loadScript('https://zwibbler.com/zwibbler-demo.js')
+    // 2. Get component and create zwibbler canvas
+    const zwibCanvas = this.$refs.zwibCanvas
+    let scope = Zwibbler.create(zwibCanvas, {
+      showToolbar: false,
+      showColourPanel: false,
+    })
+    console.log('scope attached: ', scope)
+    let ctx = scope.ctx
+    console.log('ctx: ', ctx)
+    this.ctx = scope
   },
-  methods: {
-    freeDraw(x1, y1, x2, y2) {
-      let ctx = this.canvas
-      ctx.beginPath()
-      ctx.strokeStyle = this.color
-      ctx.lineWidth = 1
-      ctx.moveTo(x1, y1)
-      ctx.lineTo(x2, y2)
-      ctx.stroke()
-      ctx.closePath()
-    },
-    drawRect(e) {
-      let ctx = this.canvas
-      let newWidth = e.offsetX - this.x
-      let newHeigth = e.offsetY - this.y
-      if (this.currentWidth && this.currentHeight) {
-        ctx.clearRect(this.x, this.y, this.currentWidth, this.currentHeight)
-      }
-      ctx.beginPath()
-      ctx.strokeStyle = this.color
-      ctx.lineWidth = 1
-      ctx.rect(this.x, this.y, newWidth, newHeigth)
-      ctx.stroke()
-      this.currentWidth = newWidth
-      this.currentHeight = newHeigth
-    },
-    drawInit(e) {
-      this.x = e.offsetX
-      this.y = e.offsetY
-      this.isDrawing = true
-    },
-    drawMoving(e) {
-      if (this.isDrawing) {
-        if (this.toolOption === 'draw') {
-          this.freeDraw(this.x, this.y, e.offsetX, e.offsetY)
-          this.x = e.offsetX
-          this.y = e.offsetY
-        }
-        if (this.toolOption === 'square') {
-          this.drawRect(e)
-        }
-      }
-    },
-    drawEnd(e) {
-      if (this.isDrawing) {
-        if (this.toolOption === 'draw') {
-          this.freeDraw(this.x, this.y, e.offsetX, e.offsetY)
-        }
-        if (this.toolOption === 'square') {
-          this.currentWidth = null
-          this.currentHeight = null
-        }
-        this.reset()
-      }
-    },
-    // Canvas default methods
-    reset() {
-      this.x = 0
-      this.y = 0
-      this.isDrawing = false
-    },
-    offCanvas() {
-      this.isDrawing = false
-    },
-    setCanvasDimensions() {
-      this.canvasWidth = window.innerWidth - 10
-      this.canvasHeight = window.innerHeight
-    },
-  },
-  mounted() {
-    const c = this.$refs.drawCanvas
-    this.canvas = c.getContext('2d')
-    this.setCanvasDimensions()
+  destroyed() {
+    //   Remove zwibbler when component is detroyed
+    this.$unloadScript('https://zwibbler.com/zwibbler-demo.js')
   },
 }
 </script>
-
-<style scoped>
-#draw-area {
-  background: #f8f8f8;
-}
-</style>
